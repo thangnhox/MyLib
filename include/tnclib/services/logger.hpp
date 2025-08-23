@@ -60,3 +60,10 @@ namespace tnclib {
 
     } // namespace services
 } // namespace tnclib
+
+#define LOG_TRACE(msg)     tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Trace, msg)
+#define LOG_DEBUG(msg)     tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Debug, msg)
+#define LOG_INFO(msg)      tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Info, msg)
+#define LOG_WARN(msg)      tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Warn, msg)
+#define LOG_ERROR(msg)     tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Error, msg)
+#define LOG_CRITICAL(msg)  tnclib::services::Logger::getInstance().log(tnclib::services::Logger::Level::Critical, msg)
