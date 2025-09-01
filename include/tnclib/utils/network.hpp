@@ -19,7 +19,7 @@ namespace tnclib {
             virtual int CreateUDPSocket() = 0;
             virtual bool ConnectTCP(int sock, const std::string& ip, int port) = 0;
             virtual bool Send(int sock, const std::vector<uint8_t>& data) = 0;
-            virtual std::vector<uint8_t> Receive(int sock, size_t bufferSize) = 0;
+            virtual std::vector<uint8_t> Receive(int sock) = 0;
             virtual void Close(int sock) = 0;
 
         public:

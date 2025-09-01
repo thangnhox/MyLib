@@ -1,6 +1,8 @@
 #include "platform/cross/network.hpp"
 #include "tnclib/services/logger.hpp"
 
+#include <fstream>
+
 namespace tnclib {
     namespace platform {
 
@@ -19,7 +21,7 @@ namespace tnclib {
             WSADATA wsaData;
             int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
             if (result != 0) {
-                LOG_ERROR("WSAStartup failed with error: {}", result);
+                LOG_ERROR("Network Utils: WSAStartup failed with error: {}", result);
                 initialized = false;
                 return false;
             }
@@ -30,33 +32,33 @@ namespace tnclib {
 
         int CrossNetwork::CreateTCPSocket() {
             if (!initialized) {
-                LOG_ERROR("CreateTCPSocket: Network not initialized!");
+                LOG_ERROR("Network Utils: Network not initialized!");
                 return -1;
             }
 
             int sock = socket(AF_INET, SOCK_STREAM, 0);
             if (sock < 0) {
-                LOG_ERROR("Failed to create TCP socket");
+                LOG_ERROR("Network Utils: Failed to create TCP socket");
             }
             return sock;
         }
 
         int CrossNetwork::CreateUDPSocket() {
             if (!initialized) {
-                LOG_ERROR("CreateUDPSocket: Network not initialized!");
+                LOG_ERROR("Network Utils: Network not initialized!");
                 return -1;
             }
 
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock < 0) {
-                LOG_ERROR("Failed to create UDP socket");
+                LOG_ERROR("Network Utils: Failed to create UDP socket");
             }
             return sock;
         }
 
         bool CrossNetwork::ConnectTCP(int sock, const std::string &ip, int port) {
             if (!initialized) {
-                LOG_ERROR("ConnectTCP: Network not initialized!");
+                LOG_ERROR("Network Utils: Network not initialized!");
                 return false;
             }
 
@@ -67,11 +69,12 @@ namespace tnclib {
             std::string portStr = std::to_string(port);
             int status = getaddrinfo(ip.c_str(), portStr.c_str(), &hints, &res);
             if (status != 0) {
+                LOG_ERROR("Network Utils: getaddrinfo failed for {}:{}", ip, port);
             #ifdef _WIN32
-                LOG_ERROR("getaddrinfo failed: {}", WSAGetLastError());
+                LOG_ERROR("Getaddrinfo failed: {}", WSAGetLastError());
             #else
                 const char* error = gai_strerror(status);
-                LOG_ERROR("getaddrinfo failed: {}", error ? error : "unknown error");
+                LOG_ERROR("Getaddrinfo failed: {}", error ? error : "unknown error");
             #endif
                 return false;
             }
@@ -85,7 +88,7 @@ namespace tnclib {
             }
 
             if (!connected) {
-                LOG_ERROR("ConnectTCP: Unable to connect to {}:{}", ip, port);
+                LOG_ERROR("Network Utils: Unable to connect to {}:{}", ip, port);
             }
 
             freeaddrinfo(res);
@@ -94,7 +97,7 @@ namespace tnclib {
 
         bool CrossNetwork::Send(int sock, const std::vector<uint8_t> &data) {
             if (!initialized) {
-                LOG_ERROR("Send: Network not initialized!");
+                LOG_ERROR("Network Utils: Network not initialized!");
                 return false;
             }
 
@@ -106,9 +109,9 @@ namespace tnclib {
                                 0);
                 if (sent <= 0) {
                 #ifdef _WIN32
-                    LOG_ERROR("Send failed: {}", WSAGetLastError());
+                    LOG_ERROR("Network Utils: Send failed: {}", WSAGetLastError());
                 #else
-                    LOG_ERROR("Send failed");
+                    LOG_ERROR("Network Utils: Send failed");
                 #endif
                     return false;
                 }
@@ -117,38 +120,43 @@ namespace tnclib {
             return true;
         }
 
-        std::vector<uint8_t> CrossNetwork::Receive(int sock, size_t bufferSize) {
+        std::vector<uint8_t> CrossNetwork::Receive(int sock) {
             if (!initialized) {
-                LOG_ERROR("Receive: Network not initialized!");
+                LOG_ERROR("Network Utils: Network not initialized!");
                 return {};
             }
 
-            std::vector<uint8_t> buffer(bufferSize);
-            int received = recv(sock,
-                                reinterpret_cast<char*>(buffer.data()),
-                                static_cast<int>(bufferSize),
-                                0);
-            if (received <= 0) {
-            #ifdef _WIN32
-                LOG_ERROR("Receive failed: {}", WSAGetLastError());
-            #else
-                LOG_ERROR("Receive failed");
-            #endif
-                return {};
+            LOG_INFO("Network Utils: Start receiving from sock {}", sock);
+            
+            std::vector<uint8_t> buffer;
+            std::vector<char> tempBuffer(1024);
+            int received = 0;
+
+            while (true) {
+                received = recv(sock, tempBuffer.data(), tempBuffer.size(), 0);
+                if (received == 0) {
+                    break;
+                }
+                if (received < 0) {
+                    LOG_ERROR("Network Utils: Receive failed");
+                    return{};
+                }
+                buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + received);
             }
 
-            buffer.resize(received);
+            LOG_INFO("Network Utils: Received {} bytes from sock {}", buffer.size(), sock);
+
             return buffer;
         }
 
         void CrossNetwork::Close(int sock) {
             if (!initialized) {
-                LOG_WARN("Close called but network not initialized");
+                LOG_WARN("Network Utils: Close called but network not initialized");
                 return;
             }
 
             if (sock < 0) {
-                LOG_WARN("Close called with invalid socket");
+                LOG_WARN("Network Utils: Close called with invalid socket");
                 return;
             }
 

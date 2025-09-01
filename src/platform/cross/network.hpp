@@ -26,7 +26,7 @@ namespace tnclib {
             int CreateUDPSocket() override;
             bool ConnectTCP(int sock, const std::string& ip, int port) override;
             bool Send(int sock, const std::vector<uint8_t>& data) override;
-            std::vector<uint8_t> Receive(int sock, size_t bufferSize) override;
+            std::vector<uint8_t> Receive(int sock) override;
             void Close(int sock) override;
 
         private:
