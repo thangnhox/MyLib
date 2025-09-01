@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <span>
 #include <unordered_map>
 #include <mutex>
 
@@ -19,7 +20,11 @@ namespace tnclib {
             virtual int CreateUDPSocket() = 0;
             virtual bool ConnectTCP(int sock, const std::string& ip, int port) = 0;
             virtual bool Send(int sock, const std::vector<uint8_t>& data) = 0;
-            virtual std::vector<uint8_t> Receive(int sock) = 0;
+
+            // Callback to process each block
+            // callBack(data, received, total_received)
+            virtual bool Receive(int sock, const std::function<void(std::span<uint8_t>, size_t, size_t)>& callBack) = 0;
+
             virtual void Close(int sock) = 0;
 
         public:

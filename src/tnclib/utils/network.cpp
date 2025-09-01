@@ -25,7 +25,7 @@ namespace tnclib {
 
             if (instance) {
                 if (active_backend != lname) {
-                    LOG_WARN("{} is already created, cannot init {}", active_backend, lname);
+                    LOG_WARN("Network Utils: {} is already created, cannot init {}", active_backend, lname);
                 }
 
                 return instance;
@@ -33,10 +33,11 @@ namespace tnclib {
 
             auto it = backends.find(lname);
             if (it != backends.end()) {
+                LOG_INFO("Network Utils: Selected back end {}", lname);
                 instance = it->second();
             } else {
                 // fallback to system backend if unknown
-                LOG_WARN("{} not found, fall back to default \"system\"", lname);
+                LOG_WARN("Network Utils: {} not found, fall back to default \"system\"", lname);
                 auto sys = backends.find("system");
                 if (sys != backends.end()) {
                     instance = sys->second();
@@ -53,7 +54,7 @@ namespace tnclib {
             std::string lname = tnclib::utils::string_utils::to_lower(name);
 
             if (lname == "system") {
-                LOG_ERROR("\"system\" backend is reserved and cannot be overwritten");
+                LOG_ERROR("Network Utils: \"system\" backend is reserved and cannot be overwritten");
                 return;
             }
 

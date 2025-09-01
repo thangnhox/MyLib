@@ -40,6 +40,8 @@ namespace tnclib {
             if (sock < 0) {
                 LOG_ERROR("Network Utils: Failed to create TCP socket");
             }
+
+            LOG_INFO("Network Utils: Created TCP socket {}", sock);
             return sock;
         }
 
@@ -53,6 +55,8 @@ namespace tnclib {
             if (sock < 0) {
                 LOG_ERROR("Network Utils: Failed to create UDP socket");
             }
+
+            LOG_INFO("Network Utils: Created UDP socket {}", sock);
             return sock;
         }
 
@@ -91,6 +95,7 @@ namespace tnclib {
                 LOG_ERROR("Network Utils: Unable to connect to {}:{}", ip, port);
             }
 
+            LOG_INFO("Network Utils: Connected to {}:{} using sock {}", ip, port, sock);
             freeaddrinfo(res);
             return connected;
         }
@@ -117,36 +122,42 @@ namespace tnclib {
                 }
                 totalSent += sent;
             }
+
+            LOG_INFO("Network Utils: Sent {} bytes through sock {}", data.size(), sock);
             return true;
         }
 
-        std::vector<uint8_t> CrossNetwork::Receive(int sock) {
+        bool CrossNetwork::Receive(int sock, const std::function<void(std::span<uint8_t>, size_t, size_t)>& callBack) {
             if (!initialized) {
                 LOG_ERROR("Network Utils: Network not initialized!");
-                return {};
+                return false;
             }
 
             LOG_INFO("Network Utils: Start receiving from sock {}", sock);
             
-            std::vector<uint8_t> buffer;
-            std::vector<char> tempBuffer(1024);
+            std::vector<uint8_t> tempBuffer(1024);
             int received = 0;
+            size_t total_received = 0;
 
             while (true) {
                 received = recv(sock, tempBuffer.data(), tempBuffer.size(), 0);
+
                 if (received == 0) {
                     break;
                 }
                 if (received < 0) {
                     LOG_ERROR("Network Utils: Receive failed");
-                    return{};
+                    return false;
                 }
-                buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + received);
+
+                std::span<uint8_t> receivedBlockView(tempBuffer.data(), received);
+
+                total_received += received;
+                callBack(receivedBlockView, received, total_received);
             }
 
-            LOG_INFO("Network Utils: Received {} bytes from sock {}", buffer.size(), sock);
-
-            return buffer;
+            LOG_INFO("Network Utils: Received {} bytes from sock {}", total_received, sock);
+            return true;
         }
 
         void CrossNetwork::Close(int sock) {
@@ -165,6 +176,7 @@ namespace tnclib {
         #else
             close(sock);
         #endif
+            LOG_INFO("Network Utils: Sock {} closed", sock);
         }
 
     } // namespace platform
