@@ -2,6 +2,8 @@
 #include "tnclib/services/logger.hpp"
 
 #include <fstream>
+#include <cstring>
+#include <cerrno>
 
 namespace tnclib {
     namespace platform {
@@ -30,74 +32,159 @@ namespace tnclib {
             return true;
         }
 
-        int CrossNetwork::CreateTCPSocket() {
-            if (!initialized) {
-                LOG_ERROR("Network Utils: Network not initialized!");
-                return -1;
-            }
+        std::vector<tnclib::utils::Network::ResolvedAddress> CrossNetwork::ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint) {
+            std::vector<tnclib::utils::Network::ResolvedAddress> results;
+            struct addrinfo hints, *res, *p;
+            int status;
 
-            int sock = socket(AF_INET, SOCK_STREAM, 0);
-            if (sock < 0) {
-                LOG_ERROR("Network Utils: Failed to create TCP socket");
-            }
-
-            LOG_INFO("Network Utils: Created TCP socket {}", sock);
-            return sock;
-        }
-
-        int CrossNetwork::CreateUDPSocket() {
-            if (!initialized) {
-                LOG_ERROR("Network Utils: Network not initialized!");
-                return -1;
-            }
-
-            int sock = socket(AF_INET, SOCK_DGRAM, 0);
-            if (sock < 0) {
-                LOG_ERROR("Network Utils: Failed to create UDP socket");
-            }
-
-            LOG_INFO("Network Utils: Created UDP socket {}", sock);
-            return sock;
-        }
-
-        bool CrossNetwork::ConnectTCP(int sock, const std::string &ip, int port) {
-            if (!initialized) {
-                LOG_ERROR("Network Utils: Network not initialized!");
-                return false;
-            }
-
-            struct addrinfo hints{}, *res = nullptr;
-            hints.ai_family = AF_UNSPEC;
+            memset(&hints, 0, sizeof hints);
             hints.ai_socktype = SOCK_STREAM;
 
-            std::string portStr = std::to_string(port);
-            int status = getaddrinfo(ip.c_str(), portStr.c_str(), &hints, &res);
-            if (status != 0) {
-                LOG_ERROR("Network Utils: getaddrinfo failed for {}:{}", ip, port);
-            #ifdef _WIN32
-                LOG_ERROR("Getaddrinfo failed: {}", WSAGetLastError());
-            #else
-                const char* error = gai_strerror(status);
-                LOG_ERROR("Getaddrinfo failed: {}", error ? error : "unknown error");
-            #endif
-                return false;
+            switch (hint) {
+                case ResolutionHint::IPv4:
+                    hints.ai_family = AF_INET;
+                    break;
+                case ResolutionHint::IPv6:
+                    hints.ai_family = AF_INET6;
+                    break;
+                default:
+                    hints.ai_family = AF_UNSPEC;
             }
 
-            bool connected = false;
-            for (struct addrinfo* p = res; p != nullptr; p = p->ai_next) {
-                if (::connect(sock, p->ai_addr, static_cast<int>(p->ai_addrlen)) == 0) {
-                    connected = true;
+            if ((status = getaddrinfo(hostname.c_str(), service.c_str(), &hints, &res)) != 0) {
+                LOG_ERROR("Network Utils: getaddrinfo failed for {}", hostname);
+            #ifdef _WIN32
+                LOG_ERROR("Network Utils: {}", WSAGetLastError());
+            #else
+                const char* error = gai_strerror(status);
+                LOG_ERROR("Network Utils: {}", error ? error : "unknown error");
+            #endif
+                return results;
+            }
+
+            for(p = res; p != NULL; p = p->ai_next) {
+                tnclib::utils::Network::ResolvedAddress addr;
+                addr.port = std::stoi(service);
+                
+                if (p->ai_family == AF_INET) { // IPv4
+                    struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+                    char ip_str[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &(ipv4->sin_addr), ip_str, sizeof(ip_str));
+                    addr.ip = ip_str;
+                    addr.family = AddressFamily::IPv4;
+                } else if (p->ai_family == AF_INET6) { // IPv6
+                    struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+                    char ip_str[INET6_ADDRSTRLEN];
+                    inet_ntop(AF_INET6, &(ipv6->sin6_addr), ip_str, sizeof(ip_str));
+                    addr.ip = ip_str;
+                    addr.family = AddressFamily::IPv6;
+                }
+
+                results.push_back(addr);
+            }
+
+            freeaddrinfo(res);
+            return results;
+        }
+
+        int CrossNetwork::CreateSocket(ConnectionType type, AddressFamily family) {
+            if (!initialized) {
+                LOG_ERROR("Network Utils: Network not initialized!");
+                return -1;
+            }
+
+            int af_val;
+            switch (family) {
+                case AddressFamily::IPv6:
+                    af_val = AF_INET6;
+                    break;
+                case AddressFamily::IPv4:
+                case AddressFamily::Default:
+                default:
+                    af_val = AF_INET; // default to IPv4
+                    break;
+            }
+
+            int sock_type;
+            switch (type) {
+                case ConnectionType::TCP:
+                    sock_type = SOCK_STREAM;
+                    break;
+                case ConnectionType::UDP:
+                    sock_type = SOCK_DGRAM;
+                    break;
+                default:
+                    LOG_ERROR("Network Utils: Unknown connection type");
+                    return -1;
+            }
+
+            int sock = socket(af_val, sock_type, 0);
+            if (sock < 0) {
+                LOG_ERROR("Network Utils: Failed to create socket");
+                return -1;
+            }
+
+            LOG_INFO("Network Utils: Created {} socket {} with family {}",
+                     type == ConnectionType::TCP ? "TCP" : "UDP",
+                     sock,
+                     af_val == AF_INET6 ? "IPv6" : "IPv4");
+            return sock;
+        }
+
+        int CrossNetwork::CreateTCPSocket(AddressFamily family) {
+            return CreateSocket(ConnectionType::TCP, family);
+        }
+
+        int CrossNetwork::CreateUDPSocket(AddressFamily family) {
+            return CreateSocket(ConnectionType::UDP, family);
+        }
+
+        bool CrossNetwork::Connect(int sock, const tnclib::utils::Network::ResolvedAddress& address) {
+            int result = -1;
+            sockaddr_storage ss; // A generic structure to hold either sockaddr_in or sockaddr_in6
+            socklen_t len = 0;
+
+            memset(&ss, 0, sizeof(ss));
+
+            switch (address.family) {
+                case AddressFamily::IPv6: {
+                    sockaddr_in6* sa6 = (sockaddr_in6*)&ss;
+                    sa6->sin6_family = AF_INET6;
+                    sa6->sin6_port = htons(address.port);
+                    len = sizeof(sockaddr_in6);
+
+                    if (inet_pton(AF_INET6, address.ip.c_str(), &(sa6->sin6_addr)) <= 0) {
+                        LOG_ERROR("Network Utils: Invalid IPv6 address {}", address.ip);
+                        return false;
+                    }
+                    break;
+                }
+                case AddressFamily::IPv4:
+                default: {
+                    sockaddr_in* sa = (sockaddr_in*)&ss;
+                    sa->sin_family = AF_INET;
+                    sa->sin_port = htons(address.port);
+                    len = sizeof(sockaddr_in);
+
+                    if (inet_pton(AF_INET, address.ip.c_str(), &(sa->sin_addr)) <= 0) {
+                        LOG_ERROR("Network Utils: Invalid IPv4 address {}", address.ip);
+                        return false;
+                    }
                     break;
                 }
             }
 
-            if (!connected) {
-                LOG_ERROR("Network Utils: Unable to connect to {}:{}", ip, port);
+            result = connect(sock, (struct sockaddr*)&ss, len);
+
+            if (result != 0) {
+                LOG_ERROR("Network Utils: Failed to connect to {}:{} with error: {}", 
+                        address.ip, address.port, strerror(errno));
+                return false;
             }
 
-            LOG_INFO("Network Utils: Connected to {}:{} using sock {}", ip, port, sock);
-            freeaddrinfo(res);
-            return connected;
+            LOG_INFO("Network Utils: Connected to {}:{} using sock {}", address.ip, address.port, sock);
+
+            return true;
         }
 
         bool CrossNetwork::Send(int sock, const std::vector<uint8_t> &data) {

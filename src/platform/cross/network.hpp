@@ -22,9 +22,11 @@ namespace tnclib {
 
             bool Init() override;
 
-            int CreateTCPSocket() override;
-            int CreateUDPSocket() override;
-            bool ConnectTCP(int sock, const std::string& ip, int port) override;
+            std::vector<ResolvedAddress> ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint = ResolutionHint::Unspecified) override;
+            int CreateSocket(ConnectionType type, AddressFamily family = AddressFamily::Default) override;
+            int CreateTCPSocket(AddressFamily family = AddressFamily::Default) override;
+            int CreateUDPSocket(AddressFamily family = AddressFamily::Default) override;
+            bool Connect(int sock, const ResolvedAddress& address) override;
             bool Send(int sock, const std::vector<uint8_t>& data) override;
             bool Receive(int sock, const std::function<void(std::span<uint8_t>, size_t, size_t)>& callBack) override;
             void Close(int sock) override;
