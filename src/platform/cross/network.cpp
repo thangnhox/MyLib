@@ -32,8 +32,8 @@ namespace tnclib {
             return true;
         }
 
-        std::vector<tnclib::utils::Network::ResolvedAddress> CrossNetwork::ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint) {
-            std::vector<tnclib::utils::Network::ResolvedAddress> results;
+        std::vector<tnclib::utils::Network::InternetAddress> CrossNetwork::ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint) {
+            std::vector<tnclib::utils::Network::InternetAddress> results;
             struct addrinfo hints, *res, *p;
             int status;
 
@@ -63,7 +63,7 @@ namespace tnclib {
             }
 
             for(p = res; p != NULL; p = p->ai_next) {
-                tnclib::utils::Network::ResolvedAddress addr;
+                tnclib::utils::Network::InternetAddress addr;
                 addr.port = std::stoi(service);
                 
                 if (p->ai_family == AF_INET) { // IPv4
@@ -139,7 +139,62 @@ namespace tnclib {
             return CreateSocket(ConnectionType::UDP, family);
         }
 
-        bool CrossNetwork::Connect(int sock, const tnclib::utils::Network::ResolvedAddress& address) {
+        bool CrossNetwork::Bind(int sock, const tnclib::utils::Network::InternetAddress& address) {
+            int result = -1;
+            sockaddr_storage ss; // A generic structure to hold either sockaddr_in or sockaddr_in6
+            socklen_t len = 0;
+            memset(&ss, 0, sizeof(ss));
+
+            switch (address.family) {
+                case AddressFamily::IPv6: {
+                    sockaddr_in6* sa6 = (sockaddr_in6*)&ss;
+                    sa6->sin6_family = AF_INET6;
+                    sa6->sin6_port = htons(address.port);
+                    len = sizeof(sockaddr_in6);
+
+                    if (address.ip.empty()) {
+                        sa6->sin6_addr = in6addr_any; // Bind to any address
+                    } else if (inet_pton(AF_INET6, address.ip.c_str(), &(sa6->sin6_addr)) <= 0) {
+                        LOG_ERROR("Network Utils: Invalid IPv6 address {}", address.ip);
+                        return false;
+                    }
+
+                    if (bind(sock, (struct sockaddr*)sa6, len) < 0) {
+                        LOG_ERROR("Network Utils: Failed to bind IPv6 socket {}: {}", sock, strerror(errno));
+                        return false;
+                    }
+                    LOG_INFO("Network Utils: Bound IPv6 socket {} to {}:{}", sock, address.ip.empty() ? "*" : address.ip, address.port);
+
+                    break;
+                }
+                case AddressFamily::IPv4:
+                default: {
+                    sockaddr_in* sa = (sockaddr_in*)&ss;
+                    sa->sin_family = AF_INET;
+                    sa->sin_port = htons(address.port);
+                    len = sizeof(sockaddr_in);
+
+                    if (address.ip.empty()) {
+                        sa->sin_addr.s_addr = INADDR_ANY; // Bind to any address
+                    } else if (inet_pton(AF_INET, address.ip.c_str(), &(sa->sin_addr)) <= 0) {
+                        LOG_ERROR("Network Utils: Invalid IPv4 address {}", address.ip);
+                        return false;
+                    }
+
+                    if (bind(sock, (struct sockaddr*)sa, len) < 0) {
+                        LOG_ERROR("Network Utils: Failed to bind IPv4 socket {}: {}", sock, strerror(errno));
+                        return false;
+                    }
+                    LOG_INFO("Network Utils: Bound IPv4 socket {} to {}:{}", sock, address.ip.empty() ? "*" : address.ip, address.port);
+                    
+                    break;
+                }
+            }
+
+            return true;
+        }
+
+        bool CrossNetwork::Connect(int sock, const tnclib::utils::Network::InternetAddress& address) {
             int result = -1;
             sockaddr_storage ss; // A generic structure to hold either sockaddr_in or sockaddr_in6
             socklen_t len = 0;
@@ -184,6 +239,57 @@ namespace tnclib {
 
             LOG_INFO("Network Utils: Connected to {}:{} using sock {}", address.ip, address.port, sock);
 
+            return true;
+        }
+
+        bool CrossNetwork::Listen(int sock, int backlog) {
+            if (!initialized) {
+                LOG_ERROR("Network Utils: Network not initialized!");
+                return false;
+            }
+
+            if (listen(sock, backlog) < 0) {
+                LOG_ERROR("Network Utils: Listen failed on sock {}: {}", sock, strerror(errno));
+                return false;
+            }
+
+            LOG_INFO("Network Utils: Listening on sock {} with backlog {}", sock, backlog);
+            return true;
+        }
+
+        bool CrossNetwork::Accept(int sock, tnclib::utils::Network::InternetAddress& outAddress) {
+            if (!initialized) {
+                LOG_ERROR("Network Utils: Network not initialized!");
+                return false;
+            }
+
+            sockaddr_storage their_addr;
+            socklen_t addr_size = sizeof(their_addr);
+            int new_fd = accept(sock, (struct sockaddr *)&their_addr, &addr_size);
+            if (new_fd == -1) {
+                LOG_ERROR("Network Utils: Accept failed on sock {}: {}", sock, strerror(errno));
+                return false;
+            }
+
+            char ipstr[INET6_ADDRSTRLEN];
+            int port;
+
+            if (their_addr.ss_family == AF_INET) {
+                sockaddr_in *s = (sockaddr_in *)&their_addr;
+                port = ntohs(s->sin_port);
+                inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
+                outAddress.family = AddressFamily::IPv4;
+            } else { // AF_INET6
+                sockaddr_in6 *s = (sockaddr_in6 *)&their_addr;
+                port = ntohs(s->sin6_port);
+                inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
+                outAddress.family = AddressFamily::IPv6;
+            }
+
+            outAddress.ip = ipstr;
+            outAddress.port = port;
+
+            LOG_INFO("Network Utils: Accepted connection on sock {} from {}:{}", sock, outAddress.ip, outAddress.port);
             return true;
         }
 

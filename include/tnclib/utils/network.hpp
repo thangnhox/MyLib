@@ -31,7 +31,7 @@ namespace tnclib {
                 IPv6
             };
 
-            struct ResolvedAddress {
+            struct InternetAddress {
                 std::string ip;
                 AddressFamily family;
                 int port;
@@ -54,10 +54,10 @@ namespace tnclib {
              * based on the protocol. An empty string can be used if not applicable.
              * @param hint A hint to guide the resolution process, such as specifying the
              * desired address family (e.g., IPv4 or IPv6). Defaults to ResolutionHint::Unspecified.
-             * @return A std::vector of ResolvedAddress objects, each representing a resolved
+             * @return A std::vector of InternetAddress objects, each representing a resolved
              * network address. The vector will be empty if the resolution fails.
              */
-            virtual std::vector<ResolvedAddress> ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint = ResolutionHint::Unspecified) = 0;
+            virtual std::vector<InternetAddress> ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint = ResolutionHint::Unspecified) = 0;
 
             /**
              * @brief Creates a new network socket of a specified type.
@@ -108,6 +108,20 @@ namespace tnclib {
             virtual int CreateUDPSocket(AddressFamily family = AddressFamily::Default) = 0;
 
             /**
+             * @brief Binds a socket to a local address.
+             *
+             * This pure virtual function provides an abstract interface for binding a socket
+             * to a specific local address and port. It is implemented by a concrete derived
+             * class to perform the actual binding operation. **A default implementation is provided.**
+             *
+             * @param sock The integer handle or descriptor of the socket to bind.
+             * @param address The InternetAddress object representing the local endpoint's IP address
+             * and port to bind the socket to.
+             * @return Returns true on a successful bind operation, and false if the bind fails.
+             */
+            virtual bool Bind(int sock, const InternetAddress& address) = 0;
+
+            /**
              * @brief Establishes a connection to a remote address on a given socket.
              *
              * This pure virtual function provides an abstract interface for establishing a network connection.
@@ -116,11 +130,26 @@ namespace tnclib {
              *
              * @param sock The integer handle or descriptor of the socket to connect. This socket must be a
              * valid, previously created socket, typically of a connection-oriented type like TCP.
-             * @param address The ResolvedAddress object containing the remote endpoint's IP address and port
+             * @param address The InternetAddress object containing the remote endpoint's IP address and port
              * to which the socket should connect.
              * @return Returns true on a successful connection, and false if the connection fails.
              */
-            virtual bool Connect(int sock, const ResolvedAddress& address) = 0;
+            virtual bool Connect(int sock, const InternetAddress& address) = 0;
+
+            /**
+             * @brief Mark socket as passive to accept incoming connection requests.
+             *
+             * This pure virtual function provides an abstract interface for listening for
+             * incoming connections on a socket. It is implemented by a concrete derived
+             * class to perform the actual listening operation. **A default implementation is provided.**
+             *
+             * @param sock The integer handle or descriptor of the socket to listen on.
+             * @param backlog The maximum length of the queue of pending connections.
+             * @return Returns true on a successful listen operation, and false if the listen fails.
+             */
+            virtual bool Listen(int sock, int backlog) = 0;
+
+            virtual bool Accept(int sock, InternetAddress& outAddress) = 0;
 
             /**
              * @brief Sends data over a connected socket.
