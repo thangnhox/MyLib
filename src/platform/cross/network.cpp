@@ -257,18 +257,20 @@ namespace tnclib {
             return true;
         }
 
-        bool CrossNetwork::Accept(int sock, tnclib::utils::Network::InternetAddress& outAddress) {
+        int CrossNetwork::Accept(int sock) {
             if (!initialized) {
                 LOG_ERROR("Network Utils: Network not initialized!");
-                return false;
+                return -1;
             }
+
+            tnclib::utils::Network::InternetAddress outAddress;
 
             sockaddr_storage their_addr;
             socklen_t addr_size = sizeof(their_addr);
             int new_fd = accept(sock, (struct sockaddr *)&their_addr, &addr_size);
             if (new_fd == -1) {
                 LOG_ERROR("Network Utils: Accept failed on sock {}: {}", sock, strerror(errno));
-                return false;
+                return -1;
             }
 
             char ipstr[INET6_ADDRSTRLEN];
@@ -290,7 +292,7 @@ namespace tnclib {
             outAddress.port = port;
 
             LOG_INFO("Network Utils: Accepted connection on sock {} from {}:{}", sock, outAddress.ip, outAddress.port);
-            return true;
+            return new_fd;
         }
 
         bool CrossNetwork::Send(int sock, const std::vector<uint8_t> &data) {

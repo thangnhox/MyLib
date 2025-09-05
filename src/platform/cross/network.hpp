@@ -29,7 +29,7 @@ namespace tnclib {
             bool Bind(int sock, const InternetAddress& address) override;
             bool Connect(int sock, const InternetAddress& address) override;
             bool Listen(int sock, int backlog) override;
-            bool Accept(int sock, InternetAddress& outAddress) override;
+            int Accept(int sock) override;
             bool Send(int sock, const std::vector<uint8_t>& data) override;
             bool Receive(int sock, const std::function<void(std::span<uint8_t>, size_t, size_t)>& callBack) override;
             void Close(int sock) override;

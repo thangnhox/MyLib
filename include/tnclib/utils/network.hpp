@@ -149,7 +149,18 @@ namespace tnclib {
              */
             virtual bool Listen(int sock, int backlog) = 0;
 
-            virtual bool Accept(int sock, InternetAddress& outAddress) = 0;
+            /**
+             * @brief Accepts an incoming connection on a listening socket.
+             *
+             * This pure virtual function provides an abstract interface for accepting
+             * incoming connection requests. It is implemented by a concrete derived
+             * class to handle the actual accept operation. **A default implementation is provided.**
+             *
+             * @param sock The integer handle or descriptor of the listening socket.
+             * @return On success, returns a new socket descriptor for the accepted connection.
+             * On failure, returns -1 or a platform-specific error code.
+             */
+            virtual int Accept(int sock) = 0;
 
             /**
              * @brief Sends data over a connected socket.
