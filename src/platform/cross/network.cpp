@@ -99,14 +99,18 @@ namespace tnclib {
                     af_val = AF_INET6;
                     break;
                 case AddressFamily::IPv4:
-                case AddressFamily::Default:
-                default:
-                    af_val = AF_INET; // default to IPv4
+                    af_val = AF_INET;
                     break;
+                default:
+                    LOG_ERROR("Network Utils: Unknown address family");
+                    return -1;
             }
 
             int sock_type;
             switch (type) {
+                case ConnectionType::SEQ:
+                    sock_type = SOCK_SEQPACKET;
+                    break;
                 case ConnectionType::TCP:
                     sock_type = SOCK_STREAM;
                     break;
@@ -124,10 +128,13 @@ namespace tnclib {
                 return -1;
             }
 
-            LOG_INFO("Network Utils: Created {} socket {} with family {}",
-                     type == ConnectionType::TCP ? "TCP" : "UDP",
-                     sock,
-                     af_val == AF_INET6 ? "IPv6" : "IPv4");
+            // log the created socket with its type and family
+            LOG_INFO("Network Utils: Created socket {} (Family: {}, Type: {})", 
+                sock, 
+                af_val == AF_INET ? "IPv4" : (af_val == AF_INET6 ? "IPv6" : "Unknown"),
+                sock_type == SOCK_STREAM ? "TCP" : (sock_type == SOCK_DGRAM ? "UDP" : "SEQ")
+            );
+
             return sock;
         }
 
@@ -335,7 +342,10 @@ namespace tnclib {
             size_t total_received = 0;
 
             while (true) {
-                received = recv(sock, tempBuffer.data(), tempBuffer.size(), 0);
+                sockaddr_storage srcAddr{};
+                socklen_t addrLen = sizeof(srcAddr);
+                
+                received = recvfrom(sock, tempBuffer.data(), tempBuffer.size(), 0, (struct sockaddr *)&srcAddr, &addrLen);
 
                 if (received == 0) {
                     break;

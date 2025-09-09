@@ -15,14 +15,14 @@ namespace tnclib {
         class Network {
         public:
             enum class AddressFamily : int {
-                Default = 0,
                 IPv4 = 4,
                 IPv6 = 6
             };
 
             enum class ConnectionType : int {
-                TCP = 0,
-                UDP = 1
+                SEQ,    // SOCK_SEQPACKAGE - SCTP
+                TCP,    // SOCK_STREAM - TCP
+                UDP     // SOCK_DGRAM - UDP
             };
 
             enum class ResolutionHint : int {
@@ -60,22 +60,19 @@ namespace tnclib {
             virtual std::vector<InternetAddress> ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint = ResolutionHint::Unspecified) = 0;
 
             /**
-             * @brief Creates a new network socket of a specified type.
-             *
-             * This pure virtual function provides an abstract interface for creating sockets.
-             * It is implemented by a concrete derived class to handle the actual socket
-             * creation for the specific platform or library. **A default implementation is provided,**
-             * **making this interface usable without requiring a custom derived class.** This method
-             * allows for polymorphic creation of different socket types based on a runtime parameter.
-             *
+             * @brief Creates a new socket of the specified type and address family.
+             * 
+             * This pure virtual function provides an abstract interface for creating a network socket.
+             * It is implemented by a concrete derived class to handle the platform-specific
+             * socket creation. **A default implementation is provided.**
+             * 
              * @param type The type of socket to create (e.g., ConnectionType::TCP or ConnectionType::UDP).
              * @param family The address family for the socket (e.g., AddressFamily::IPv4 or AddressFamily::IPv6).
-             * Defaults to AddressFamily::Default, which typically resolves to the most appropriate
-             * family for the operating environment.
-             * @return An integer representing the newly created socket handle or descriptor.
+             * Defaults to AddressFamily::IPv4.
+             * @return An integer representing the new socket handle.
              * Returns -1 or a platform-specific error code on failure.
              */
-            virtual int CreateSocket(ConnectionType type, AddressFamily family = AddressFamily::Default) = 0;
+            virtual int CreateSocket(ConnectionType type, AddressFamily family = AddressFamily::IPv4) = 0;
 
             /**
              * @brief Creates a new TCP (Transmission Control Protocol) socket.
@@ -86,11 +83,11 @@ namespace tnclib {
              * **A default implementation is provided.**
              *
              * @param family The address family for the socket (e.g., AddressFamily::IPv4 or AddressFamily::IPv6).
-             * Defaults to AddressFamily::Default.
+             * Defaults to AddressFamily::IPv4.
              * @return An integer representing the new socket handle.
              * Returns -1 or a platform-specific error code on failure.
              */
-            virtual int CreateTCPSocket(AddressFamily family = AddressFamily::Default) = 0;
+            virtual int CreateTCPSocket(AddressFamily family = AddressFamily::IPv4) = 0;
 
             /**
              * @brief Creates a new UDP (User Datagram Protocol) socket.
@@ -101,11 +98,11 @@ namespace tnclib {
              * video streaming or online gaming. **A default implementation is provided.**
              *
              * @param family The address family for the socket (e.g., AddressFamily::IPv4 or AddressFamily::IPv6).
-             * Defaults to AddressFamily::Default.
+             * Defaults to AddressFamily::IPv4.
              * @return An integer representing the new socket handle.
              * Returns -1 or a platform-specific error code on failure.
              */
-            virtual int CreateUDPSocket(AddressFamily family = AddressFamily::Default) = 0;
+            virtual int CreateUDPSocket(AddressFamily family = AddressFamily::IPv4) = 0;
 
             /**
              * @brief Binds a socket to a local address.

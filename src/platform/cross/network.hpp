@@ -23,9 +23,9 @@ namespace tnclib {
             bool Init() override;
 
             std::vector<InternetAddress> ResolveDomain(const std::string& hostname, const std::string& service, ResolutionHint hint = ResolutionHint::Unspecified) override;
-            int CreateSocket(ConnectionType type, AddressFamily family = AddressFamily::Default) override;
-            int CreateTCPSocket(AddressFamily family = AddressFamily::Default) override;
-            int CreateUDPSocket(AddressFamily family = AddressFamily::Default) override;
+            int CreateSocket(ConnectionType type, AddressFamily family = AddressFamily::IPv4) override;
+            int CreateTCPSocket(AddressFamily family = AddressFamily::IPv4) override;
+            int CreateUDPSocket(AddressFamily family = AddressFamily::IPv4) override;
             bool Bind(int sock, const InternetAddress& address) override;
             bool Connect(int sock, const InternetAddress& address) override;
             bool Listen(int sock, int backlog) override;
