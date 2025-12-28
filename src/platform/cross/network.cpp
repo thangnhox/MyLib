@@ -64,18 +64,21 @@ namespace tnclib {
 
             for(p = res; p != NULL; p = p->ai_next) {
                 tnclib::utils::Network::InternetAddress addr;
-                addr.port = std::stoi(service);
                 
                 if (p->ai_family == AF_INET) { // IPv4
                     struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
                     char ip_str[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, &(ipv4->sin_addr), ip_str, sizeof(ip_str));
+
+                    addr.port = ntohs(ipv4->sin_port);
                     addr.ip = ip_str;
                     addr.family = AddressFamily::IPv4;
                 } else if (p->ai_family == AF_INET6) { // IPv6
                     struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
                     char ip_str[INET6_ADDRSTRLEN];
                     inet_ntop(AF_INET6, &(ipv6->sin6_addr), ip_str, sizeof(ip_str));
+
+                    addr.port = ntohs(ipv6->sin6_port);
                     addr.ip = ip_str;
                     addr.family = AddressFamily::IPv6;
                 }

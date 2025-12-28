@@ -61,5 +61,87 @@ namespace tnclib {
             backends[lname] = std::move(factory);
         }
 
+        Network::Uri Network::ParseUri(const std::string& uri) {
+            Uri result;
+
+            // Find the scheme
+            size_t scheme_end = uri.find("://");
+            if (scheme_end != std::string::npos) {
+                result.scheme = uri.substr(0, scheme_end);
+            } else {
+                result.scheme = "";
+                scheme_end = 0; // No scheme found, start from beginning
+            }
+
+            // Find the host
+            // Host can be domain name, IPv4, or [IPv6]
+            size_t host_start = scheme_end + (scheme_end > 0 ? 3 : 0);
+            size_t path_start = uri.find('/', host_start);
+            size_t host_end = host_start;
+            // Find [ and ] for IPv6
+            if (uri[host_start] == '[') {
+                size_t ipv6_end = uri.find(']', host_start);
+                if (ipv6_end != std::string::npos) {
+                    result.host = uri.substr(host_start + 1, ipv6_end - host_start - 1);
+                    host_end = ipv6_end + 1; // Move past ']'
+                } else {
+                    // Malformed IPv6, treat as normal host
+                    host_end = (path_start != std::string::npos) ? path_start : uri.length();
+                    result.host = uri.substr(host_start, host_end - host_start);
+                }
+                // Check for port after IPv6
+                if (host_end < uri.length() && uri[host_end] == ':') {
+                    size_t port_start = host_end + 1;
+                    size_t port_end = (path_start != std::string::npos) ? path_start : uri.length();
+                    if (port_start < port_end) {
+                        try {
+                            result.port = std::stoi(uri.substr(port_start, port_end - port_start));
+                        } catch (...) {
+                            result.port = -1; // Invalid port
+                        }
+                    }
+                    host_end = port_end;
+                }
+            } else {
+                host_end = (path_start != std::string::npos) ? path_start : uri.length();
+                size_t port_pos = uri.find(':', host_start);
+                if (port_pos != std::string::npos && port_pos < host_end) {
+                    result.host = uri.substr(host_start, port_pos - host_start);
+                    try {
+                        result.port = std::stoi(uri.substr(port_pos + 1, host_end - port_pos - 1));
+                    } catch (...) {
+                        result.port = -1; // Invalid port
+                    }
+                } else {
+                    result.host = uri.substr(host_start, host_end - host_start);
+                }
+            }
+
+            // Find the path, query, and fragment
+            if (path_start != std::string::npos) {
+                size_t query_start = uri.find('?', path_start);
+                size_t fragment_start = uri.find('#', path_start);
+
+                if (query_start != std::string::npos && (fragment_start == std::string::npos || query_start < fragment_start)) {
+                    result.path = uri.substr(path_start, query_start - path_start);
+                    if (fragment_start != std::string::npos) {
+                        result.query = uri.substr(query_start + 1, fragment_start - query_start - 1);
+                        result.fragment = uri.substr(fragment_start + 1);
+                    } else {
+                        result.query = uri.substr(query_start + 1);
+                    }
+                } else if (fragment_start != std::string::npos) {
+                    result.path = uri.substr(path_start, fragment_start - path_start);
+                    result.fragment = uri.substr(fragment_start + 1);
+                } else {
+                    result.path = uri.substr(path_start);
+                }
+            } else {
+                result.path = "/";
+            }
+
+            return result;
+        }
+
     } // namespace utils
 } // namespace tnclib

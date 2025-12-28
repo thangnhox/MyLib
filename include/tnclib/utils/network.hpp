@@ -37,6 +37,15 @@ namespace tnclib {
                 int port;
             };
 
+            struct Uri {
+                std::string scheme;
+                std::string host;
+                std::int32_t port = -1; // -1 indicates no port specified
+                std::string path;
+                std::string query;
+                std::string fragment;
+            };
+
         public:
             virtual ~Network() = default;
 
@@ -207,6 +216,9 @@ namespace tnclib {
             /// Register a custom backend factory by name.
             static void RegisterBackend(const std::string& name,
                                         std::function<std::shared_ptr<Network>()> factory);
+
+            /// Parse a URI string into its components.
+            static Uri ParseUri(const std::string& uri);
 
         protected:
             Network() = default;
