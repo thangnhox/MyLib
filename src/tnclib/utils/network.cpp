@@ -1,16 +1,13 @@
 #include "tnclib/utils/network.hpp"
 #include "tnclib/utils/string.hpp"
 #include "tnclib/services/logger.hpp"
-#include "platform/cross/network.hpp"
 
 namespace tnclib {
     namespace utils {
 
         std::shared_ptr<Network> Network::instance = nullptr;
         std::string Network::active_backend = "";
-        std::unordered_map<std::string, std::function<std::shared_ptr<Network>()>> Network::backends = {
-            {"system", []() { return std::make_shared<platform::CrossNetwork>(); }}
-        };
+        std::unordered_map<std::string, std::function<std::shared_ptr<Network>()>> Network::backends = {};
         std::mutex Network::mutex;
 
         std::shared_ptr<Network> Network::Instance() {
@@ -49,16 +46,20 @@ namespace tnclib {
 
         void Network::RegisterBackend(const std::string& name,
                                       std::function<std::shared_ptr<Network>()> factory) {
+            if (!factory) {
+                throw std::invalid_argument("EventDispatcher backend factory is null");
+            }
+
             std::lock_guard<std::mutex> lock(mutex);
 
             std::string lname = tnclib::utils::string_utils::to_lower(name);
 
-            if (lname == "system") {
-                LOG_ERROR("Network Utils: \"system\" backend is reserved and cannot be overwritten");
-                return;
+            auto [it, inserted] = backends.emplace(lname, std::move(factory));
+            if (!inserted) {
+                throw std::logic_error(
+                    "EventDispatcher backend already registered: " + lname
+                );
             }
-
-            backends[lname] = std::move(factory);
         }
 
         Network::Uri Network::ParseUri(const std::string& uri) {

@@ -40,7 +40,7 @@ namespace tnclib {
             struct Uri {
                 std::string scheme;
                 std::string host;
-                std::int32_t port = -1; // -1 indicates no port specified
+                int32_t port = -1; // -1 indicates no port specified
                 std::string path;
                 std::string query;
                 std::string fragment;

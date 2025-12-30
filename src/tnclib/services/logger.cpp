@@ -79,7 +79,7 @@ namespace tnclib {
 
         void Logger::set_default_colors() {
             set_header_color(Level::Trace, Color::LightGray);
-            set_text_color(Level::Trace, Color::DarkGray);
+            set_text_color(Level::Trace, Color::White);
 
             set_header_color(Level::Debug, Color::Cyan);
             set_text_color(Level::Debug, Color::White);
@@ -88,7 +88,7 @@ namespace tnclib {
             set_text_color(Level::Info, Color::White);
 
             set_header_color(Level::Warn, Color::Yellow);
-            set_text_color(Level::Warn, Color::Black);
+            set_text_color(Level::Warn, Color::White);
 
             set_header_color(Level::Error, Color::Red);
             set_text_color(Level::Error, Color::White);
