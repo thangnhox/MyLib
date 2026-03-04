@@ -1,4 +1,5 @@
 #include "tnclib/utils/network.hpp"
+#include "tnclib/utils/init.hpp"
 
 #include <string>
 #include <iostream>
@@ -9,6 +10,8 @@
 
 int main() {
     using namespace tnclib::utils;
+
+	init_default_implementation();
 
     // --- Test Data ---
     std::string host = "daotao3.stu.edu.vn";
