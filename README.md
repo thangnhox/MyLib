@@ -1,4 +1,4 @@
-# My private cpp lib
+# My cpp lib, just for fun.
 
 ## How to build
 
