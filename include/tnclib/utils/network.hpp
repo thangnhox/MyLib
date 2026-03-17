@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <cstdint>
+#include <optional>
 
 namespace tnclib {
     namespace utils {
@@ -34,13 +35,13 @@ namespace tnclib {
             struct InternetAddress {
                 std::string ip;
                 AddressFamily family;
-                int port;
+                uint16_t port;
             };
 
             struct Uri {
                 std::string scheme;
                 std::string host;
-                int32_t port = -1; // -1 indicates no port specified
+                uint16_t port = 0; // 0 indicates invalid port or not specified
                 std::string path;
                 std::string query;
                 std::string fragment;
@@ -204,6 +205,14 @@ namespace tnclib {
              */
             virtual bool Receive(int sock, const std::function<void(std::span<uint8_t>, size_t, size_t)>& callBack) = 0;
 
+            /**
+            * @brief Retrieves the port number for a given scheme using system APIs.
+            * @param scheme The scheme name (e.g., "http", "ssh").
+            * @param protocol The transport protocol, usually "tcp" or "udp".
+            * @return std::optional<uint16_t> containing the port in host byte order.
+            */
+            virtual std::optional<uint16_t> GetPort(const std::string& scheme, ConnectionType type = ConnectionType::TCP) const = 0;
+
             virtual void Close(int sock) = 0;
 
         public:
@@ -217,8 +226,13 @@ namespace tnclib {
             static void RegisterBackend(const std::string& name,
                                         std::function<std::shared_ptr<Network>()> factory);
 
-            /// Parse a URI string into its components.
-            static Uri ParseUri(const std::string& uri);
+            /**
+            * @brief Parse a URI string into its components.
+            * @param uri
+            * @param defaultScheme If uri has no scheme, default to this.
+            * @return Uri components
+            */
+            static Uri ParseUri(const std::string& uri, const std::string& defaultScheme = "http");
 
         protected:
             Network() = default;

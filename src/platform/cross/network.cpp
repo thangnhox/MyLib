@@ -368,6 +368,41 @@ namespace tnclib {
             return true;
         }
 
+        std::optional<uint16_t> CrossNetwork::GetPort(const std::string& scheme, ConnectionType type) const {
+            if (!initialized) {
+                LOG_ERROR("Network Utils: Network not initialized!");
+                return std::nullopt;
+            }
+
+            std::string connection_type;
+            switch (type) {
+                case ConnectionType::SEQ:
+                    connection_type = "SEQ";
+                    break;
+                case ConnectionType::TCP:
+                    connection_type = "TCP";
+                    break;
+                case ConnectionType::UDP:
+                    connection_type = "UDB";
+                    break;
+                default:
+                    LOG_ERROR("Network Utils: Unknown connection type");
+                    return std::nullopt;
+            }
+
+            servent* service = getservbyname(scheme.c_str(), connection_type.c_str());
+
+            if (service != nullptr) {
+                // service->s_port is in Network Byte Order (Big Endian).
+                // ntohs (Network TO Host Short) converts it to the local CPU's format.
+                return ntohs(service->s_port);
+            }
+
+            LOG_ERROR("Network Utils: Failed to convert scheme to port");
+            return std::nullopt;
+
+        }
+
         void CrossNetwork::Close(int sock) {
             if (!initialized) {
                 LOG_WARN("Network Utils: Close called but network not initialized");

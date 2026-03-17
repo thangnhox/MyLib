@@ -62,7 +62,7 @@ namespace tnclib {
             }
         }
 
-        Network::Uri Network::ParseUri(const std::string& uri) {
+        Network::Uri Network::ParseUri(const std::string& uri, const std::string& defaultScheme) {
             Uri result;
 
             // Find the scheme
@@ -70,7 +70,7 @@ namespace tnclib {
             if (scheme_end != std::string::npos) {
                 result.scheme = uri.substr(0, scheme_end);
             } else {
-                result.scheme = "";
+                result.scheme = defaultScheme;
                 scheme_end = 0; // No scheme found, start from beginning
             }
 
@@ -98,7 +98,7 @@ namespace tnclib {
                         try {
                             result.port = std::stoi(uri.substr(port_start, port_end - port_start));
                         } catch (...) {
-                            result.port = -1; // Invalid port
+                            result.port = 0; // Invalid port
                         }
                     }
                     host_end = port_end;
@@ -111,7 +111,7 @@ namespace tnclib {
                     try {
                         result.port = std::stoi(uri.substr(port_pos + 1, host_end - port_pos - 1));
                     } catch (...) {
-                        result.port = -1; // Invalid port
+                        result.port = 0; // Invalid port
                     }
                 } else {
                     result.host = uri.substr(host_start, host_end - host_start);
